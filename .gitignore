@@ -1,0 +1,33 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+
+# Android SDK location (machine specific)
+local.properties
+
+# Signing material - never commit
+*.jks
+*.keystore
+keystore.properties
+testkeys/
+
+# Test apks and generated signing output
+*.apk
+*.apks
+*.xapk
+*.apkm
+*.idsig
+*.dex
+
+# Native build output
+native/build/
+.work/
+.fixturetmp
+.runtimetmp
+
+# IDE
+.idea/
+*.iml
+.vscode/

@@ -1,0 +1,88 @@
+plugins {
+    id 'application'
+    id 'com.gradleup.shadow' version '9.0.0'
+}
+
+group = 'alienkrishn.dex2c'
+version = '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+application {
+    mainClass = 'alienkrishn.dex2c.Dex2C'
+}
+
+dependencies {
+    implementation 'info.picocli:picocli:4.7.5'
+    // ARSCLib reads and writes the binary manifest and repacks the apk.
+    implementation 'com.github.REAndroid:ARSCLib:V1.4.0'
+    // Dalvik bytecode reading, patching and writing.
+    implementation 'com.android.tools.smali:smali-dexlib2:3.0.10'
+    // APK signing (v1/v2/v3).
+    implementation 'com.android.tools.build:apksig:8.13.0'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+// The C++ runtime that every generated method includes. It is packaged in the jar so
+// the tool can create a native project anywhere, the same way the payload is bundled.
+tasks.named('processResources') {
+    from(layout.projectDirectory.dir('native')) {
+        into 'runtime'
+    }
+}
+
+def versionResource = layout.buildDirectory.file('generated/dex2c-version.txt')
+tasks.register('generateVersionResource') {
+    def output = versionResource
+    def value = project.version.toString()
+    inputs.property('version', value)
+    outputs.file(output)
+    doLast {
+        def file = output.get().asFile
+        file.parentFile.mkdirs()
+        file.text = value
+    }
+}
+
+tasks.named('processResources') {
+    dependsOn 'generateVersionResource'
+    from(versionResource)
+}
+
+tasks.named('jar') {
+    manifest {
+        attributes 'Main-Class': 'alienkrishn.dex2c.Dex2C'
+    }
+}
+
+shadowJar {
+    archiveBaseName = 'dex2c'
+    archiveClassifier = ''
+    archiveVersion = ''
+
+    mergeServiceFiles()
+    exclude 'frameworks/android/**'
+
+    minimize()
+
+    manifest {
+        attributes 'Main-Class': 'alienkrishn.dex2c.Dex2C'
+    }
+}
+
+tasks.named('run') {
+    if (project.hasProperty('runArgs')) {
+        args project.property('runArgs').toString().split('\\s+')
+    }
+}
+
+tasks.named('test') {
+    failOnNoDiscoveredTests = false
+}
