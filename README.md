@@ -16,6 +16,44 @@ This is a full Java port of [codehasan/dex2c](https://github.com/codehasan/dex2c
 packaged as a single runnable jar. The C++ runtime is bundled inside the jar,
 so no external project template is needed.
 
+## Why dex2c
+
+### Faster compiled methods
+
+Selected methods are translated to C++ and built ahead of time with the
+Android NDK in Release mode. At runtime those methods execute as optimized
+native machine code instead of Dalvik bytecode, with no bytecode dispatch and
+no JIT warm-up for the compiled bodies. The gain is largest in loops,
+arithmetic, string handling, and array-heavy code.
+
+JNI calls still have a boundary cost, so selective compilation works best:
+compile the methods that do real work and leave small glue methods in Dalvik.
+
+### No apktool round trip
+
+`dex2c` does not unpack the APK into smali and resource trees with apktool or
+apkeditor. It reads DEX with dexlib2, patches only the selected methods, reads
+the binary manifest with ARSCLib, and repacks the ZIP directly. Avoiding a
+full decode/encode cycle keeps memory use down, saves build time, and avoids
+the apktool recompilation step that can fail on Termux.
+
+### What you get
+
+- TermuxVoid package with automatic SDK, NDK, and CMake discovery.
+- Single runnable jar; the C++ runtime is bundled, so no project template is
+  needed.
+- Multi-dex APK support.
+- Regex, exact-match, and keep filters, plus `@Dex2C` annotations.
+- Per-ABI builds for `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`, and
+  `riscv64`.
+- `RegisterNatives` mode for APKs that load classes through custom class
+  loaders.
+- Optional string-constant obfuscation.
+- Automatic loader generation when the APK has no `Application` class.
+- Native project export without building (`--no-build`, `--source-dir`,
+  `--project-archive`).
+- Optional signing with the bundled test key.
+
 ## Installation
 
 From the [TermuxVoid repository](https://termuxvoid.github.io):
