@@ -1,6 +1,8 @@
 package alienkrishn.dex2c;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 class Phi extends Variable implements User {
@@ -63,13 +65,30 @@ class Phi extends Variable implements User {
             if (!newType.equals(varType)) {
                 changed |= refineType(newType);
             }
-            for (Value op : operands.values()) {
+            List<IrBasicBlock> drop = new ArrayList<>();
+            for (Map.Entry<IrBasicBlock, Value> entry : operands.entrySet()) {
+                Value op = entry.getValue();
                 if (op instanceof Constant) {
                     continue;
                 }
                 if (!newType.equals(op.getType())) {
-                    changed |= op.refineType(newType);
+                    try {
+                        changed |= op.refineType(newType);
+                    } catch (Dex2CException ex) {
+                        // shortcut: catch handlers share one phi for several throw points;
+                        // drop the int-only path instead of tracking per-throw liveness.
+                        if (block != null && block.inCatch
+                                && Types.isInt(op.getType()) && Types.isRef(newType)) {
+                            drop.add(entry.getKey());
+                        } else {
+                            throw ex;
+                        }
+                    }
                 }
+            }
+            for (IrBasicBlock pred : drop) {
+                operands.remove(pred).removeUser(this);
+                changed = true;
             }
         }
         return changed;

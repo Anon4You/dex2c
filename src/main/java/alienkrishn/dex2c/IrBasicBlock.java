@@ -20,6 +20,7 @@ class IrBasicBlock {
     final List<String> methodToDeclare = new ArrayList<>();
     final List<IrBasicBlock> catchSuccessors = new ArrayList<>();
     final Map<Integer, Value> currentDefinitions = new HashMap<>();
+    final Map<Integer, Value> catchDefinitions = new HashMap<>();
     final Set<Phi> incompletePhis = new LinkedHashSet<>();
     final Set<Phi> phis = new LinkedHashSet<>();
 
@@ -27,6 +28,7 @@ class IrBasicBlock {
     final int start;
     boolean inCatch;
     String catchType;
+    boolean catchDefinitionsSet;
     boolean filled;
     boolean sealed;
 

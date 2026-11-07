@@ -82,6 +82,8 @@ final class Blocks {
             groups.computeIfAbsent(key.toString(), k -> new ArrayList<>())
                     .add(new TryInfo(start, end, handlers));
             leaders.add(tryBlock.getStartCodeAddress() * 2);
+            leaders.add(tryBlock.getStartCodeAddress() * 2
+                    + tryBlock.getCodeUnitCount() * 2);
             for (ExceptionHandlerInfo handler : handlers) {
                 leaders.add(handler.target);
             }

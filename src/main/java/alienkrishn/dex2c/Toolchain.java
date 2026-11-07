@@ -56,12 +56,15 @@ final class Toolchain {
                 return new File(value);
             }
         }
-        String prefix = System.getenv("PREFIX");
-        if (prefix == null || prefix.isBlank()) {
-            prefix = "/data/data/com.termux/files/usr";
-        }
-        File termux = new File(prefix, "opt/android-sdk");
+        File termux = new File(termuxPrefix(), "opt/android-sdk");
         return termux.isDirectory() ? termux : null;
+    }
+
+    private static String termuxPrefix() {
+        String prefix = System.getenv("PREFIX");
+        return prefix == null || prefix.isBlank()
+                ? "/data/data/com.termux/files/usr"
+                : prefix;
     }
 
     static File defaultNdk(File sdk) {
@@ -80,6 +83,11 @@ final class Toolchain {
             if (new File(sibling, "source.properties").isFile()) {
                 return sibling;
             }
+        }
+        File termux = new File(termuxPrefix(), "opt/android-ndk");
+        if (new File(termux, "source.properties").isFile()
+                || new File(termux, "build/cmake/android.toolchain.cmake").isFile()) {
+            return termux;
         }
         return null;
     }

@@ -21,6 +21,15 @@ import java.util.concurrent.Callable;
         description = "Compiles Dalvik bytecode to C++ JNI methods.")
 public final class Dex2C implements Callable<Integer> {
 
+    private static final String[] LOGO = {
+            " \u2584\u2584\u2584\u2584   \u2584\u2584\u2584\u2584\u2584\u2584 \u2584    \u2584  \u2584\u2584\u2584\u2584    \u2584\u2584\u2584 ",
+            " \u2588   \u2580\u2584 \u2588       \u2588  \u2588  \u2580   \u2580\u2588 \u2584\u2580   \u2580",
+            " \u2588    \u2588 \u2588\u2584\u2584\u2584\u2584\u2584   \u2588\u2588       \u2584\u2580 \u2588     ",
+            " \u2588    \u2588 \u2588       \u2584\u2580\u2580\u2584    \u2584\u2580   \u2588     ",
+            " \u2588\u2584\u2584\u2584\u2580  \u2588\u2584\u2584\u2584\u2584\u2584 \u2584\u2580  \u2580\u2584 \u2584\u2588\u2584\u2584\u2584\u2584  \u2580\u2584\u2584\u2584\u2580"
+    };
+    private static final String DESCRIPTION = "Dalvik-to-C++ JNI compiler for Termux";
+
     @Parameters(index = "0", arity = "0..1", paramLabel = "APK",
             description = "Input apk file.")
     private File positional;
@@ -162,22 +171,48 @@ public final class Dex2C implements Callable<Integer> {
     }
 
     public static void main(String[] args) {
+        Identity.ensureValid();
+        printBanner();
         System.exit(new CommandLine(new Dex2C()).execute(args));
+    }
+
+    private static void printBanner() {
+        String[] info = {version(),
+                Identity.author() + " [" + Identity.handle() + "]",
+                Identity.repo()};
+        for (int i = 0; i < LOGO.length; i++) {
+            String line = Ansi.cyan(LOGO[i]);
+            if (i < info.length) {
+                line += "  " + info[i];
+            }
+            System.out.println(line);
+        }
+        System.out.println();
+        System.out.println(" " + DESCRIPTION);
+        System.out.println();
+    }
+
+    private static String version() {
+        try (InputStream in = Dex2C.class.getResourceAsStream("/dex2c-version.txt")) {
+            if (in != null) {
+                return new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
+            }
+        } catch (IOException ignored) {
+            // fall through
+        }
+        return "dev";
     }
 
     static final class Version implements IVersionProvider {
 
         @Override
         public String[] getVersion() {
-            try (InputStream in = Dex2C.class.getResourceAsStream("/dex2c-version.txt")) {
-                if (in != null) {
-                    return new String[]{"dex2c " + new String(in.readAllBytes(),
-                            StandardCharsets.UTF_8).trim()};
-                }
-            } catch (IOException ignored) {
-                // fall through
-            }
-            return new String[]{"dex2c dev"};
+            return new String[]{
+                    "dex2c " + version(),
+                    DESCRIPTION,
+                    Identity.author() + " [" + Identity.handle() + "]",
+                    "https://" + Identity.repo()
+            };
         }
     }
 }

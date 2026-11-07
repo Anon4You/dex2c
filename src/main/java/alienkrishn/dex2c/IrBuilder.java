@@ -129,6 +129,17 @@ final class IrBuilder {
             }
             last.nextOffset = ins.offset + ins.length;
             last.dvmInstr = ins;
+            // shortcut: catch edges see the state at the first throwing insn in a block,
+            // not per-throw liveness; upgrade if shared handlers mix live types.
+            if (ins.opcode.canThrow() && !node.catchDefinitionsSet) {
+                for (Map.Entry<Integer, Value> entry : node.currentDefinitions.entrySet()) {
+                    Value value = entry.getValue();
+                    if (value != null && value.definition != last) {
+                        node.catchDefinitions.put(entry.getKey(), value);
+                    }
+                }
+                node.catchDefinitionsSet = true;
+            }
         }
         node.filled = true;
         return node;
@@ -304,7 +315,9 @@ final class IrBuilder {
         block.sealed = true;
         for (Phi phi : new ArrayList<>(block.getIncompletePhis())) {
             for (IrBasicBlock pred : preds) {
-                Value incoming = readVariable(phi.getRegister(), pred);
+                Value incoming = isCatchEdge(pred, block)
+                        ? readCatchVariable(phi.getRegister(), pred)
+                        : readVariable(phi.getRegister(), pred);
                 phi.addOperand(pred, incoming);
             }
             block.addPhi(phi);
@@ -365,7 +378,9 @@ final class IrBuilder {
             block.addPhi((Phi) value);
             ((Phi) value).setBlock(block);
             for (IrBasicBlock pred : preds) {
-                Value incoming = readVariable(register, pred);
+                Value incoming = isCatchEdge(pred, block)
+                        ? readCatchVariable(register, pred)
+                        : readVariable(register, pred);
                 ((Phi) value).addOperand(pred, incoming);
             }
         }
@@ -398,6 +413,15 @@ final class IrBuilder {
             entry.varToDeclare.add(param);
             numParam += Types.typeSize(ptype);
         }
+    }
+
+    private boolean isCatchEdge(IrBasicBlock pred, IrBasicBlock block) {
+        return graph.catchEdges.getOrDefault(pred, java.util.Collections.emptyList()).contains(block);
+    }
+
+    private Value readCatchVariable(int register, IrBasicBlock pred) {
+        Value value = pred.catchDefinitions.get(register);
+        return value != null ? value : readVariable(register, pred);
     }
 
     private Value newSsaVariable(int register) {

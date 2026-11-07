@@ -1,0 +1,93 @@
+# Release builds.
+#
+# Trigger: any push to main, plus manual `v*` tag pushes. The `resolve` job reads the
+# version from build.gradle - the only place it is written down - and skips everything
+# when a GitHub Release for v<version> already exists. Ordinary pushes are therefore
+# cheap no-ops, while a version bump builds and publishes.
+
+name: Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    name: resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      should_release: ${{ steps.ver.outputs.should_release }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve version tag
+        id: ver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            VERSION="$(grep -E "^version = " build.gradle | head -n 1 | sed -E "s/.*'([^']+)'.*/\1/")"
+            [ -n "$VERSION" ] || { echo "could not parse the version from build.gradle"; exit 1; }
+            TAG="v$VERSION"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "release $TAG already exists; nothing to do"
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "no release for $TAG; will build and publish"
+          fi
+
+  publish:
+    name: build and publish
+    needs: resolve
+    runs-on: ubuntu-latest
+    if: needs.resolve.outputs.should_release == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the fat jar
+        run: ./gradlew shadowJar
+
+      - name: Collect the artifacts
+        run: |
+          set -e
+          mkdir -p dist
+          cp build/libs/dex2c.jar dist/dex2c.jar
+          (cd dist && sha256sum * > SHA256SUMS)
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve.outputs.tag }}
+          name: dex2c ${{ needs.resolve.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/dex2c.jar
+            dist/SHA256SUMS
