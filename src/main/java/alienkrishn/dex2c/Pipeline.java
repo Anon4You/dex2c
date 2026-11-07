@@ -128,13 +128,22 @@ final class Pipeline {
                             StandardCopyOption.REPLACE_EXISTING);
                 } else {
                     Log.info("Signing " + output);
-                    Signer.sign(unsigned, output);
+                    try {
+                        Signer.sign(unsigned, output);
+                    } catch (Exception e) {
+                        throw new Dex2CException("Failed to sign " + output
+                                + ": " + e.getMessage(), e);
+                    }
                 }
             } finally {
                 //noinspection ResultOfMethodCallIgnored
                 unsigned.delete();
             }
             Log.success("Wrote " + output);
+            if (!options.sign) {
+                Log.warn("Output is unsigned. Sign " + output
+                        + " before installing, or rerun with -s/--sign.");
+            }
         } finally {
             if (temporary && !options.keepWork) {
                 WorkDir.delete(work);

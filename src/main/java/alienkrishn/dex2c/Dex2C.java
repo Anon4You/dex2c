@@ -29,6 +29,7 @@ public final class Dex2C implements Callable<Integer> {
             " \u2588\u2584\u2584\u2584\u2580  \u2588\u2584\u2584\u2584\u2584\u2584 \u2584\u2580  \u2580\u2584 \u2584\u2588\u2584\u2584\u2584\u2584  \u2580\u2584\u2584\u2584\u2580"
     };
     private static final String DESCRIPTION = "Dalvik-to-C++ JNI compiler for Termux";
+    private static final String HELP_HINT = "Run 'dex2c -h' or 'dex2c --help' for usage.";
 
     @Parameters(index = "0", arity = "0..1", paramLabel = "APK",
             description = "Input apk file.")
@@ -115,13 +116,14 @@ public final class Dex2C implements Callable<Integer> {
             Pipeline.Options options = new Pipeline.Options();
             options.input = input != null ? input : positional;
             if (options.input == null) {
-                throw new Dex2CException("An input apk is required");
+                throw new Dex2CException("An input apk is required.\n" + HELP_HINT);
             }
             if (!options.input.isFile()) {
-                throw new Dex2CException("Input apk not found: " + options.input);
+                throw new Dex2CException("Input apk not found: " + options.input
+                        + "\n" + HELP_HINT);
             }
             if (!options.input.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".apk")) {
-                throw new Dex2CException("Only apk input is supported for now");
+                throw new Dex2CException("Only apk input is supported for now.\n" + HELP_HINT);
             }
             options.output = output != null ? output : defaultOutput(options.input);
             options.filter = filter;
@@ -173,7 +175,17 @@ public final class Dex2C implements Callable<Integer> {
     public static void main(String[] args) {
         Identity.ensureValid();
         printBanner();
-        System.exit(new CommandLine(new Dex2C()).execute(args));
+        CommandLine commandLine = new CommandLine(new Dex2C());
+        commandLine.setParameterExceptionHandler((ex, argv) -> {
+            CommandLine cmd = ex.getCommandLine();
+            cmd.getErr().println(ex.getMessage());
+            if (ex instanceof CommandLine.UnmatchedArgumentException) {
+                ((CommandLine.UnmatchedArgumentException) ex).printSuggestions(cmd.getErr());
+            }
+            cmd.getErr().println(HELP_HINT);
+            return cmd.getCommandSpec().exitCodeOnInvalidInput();
+        });
+        System.exit(commandLine.execute(args));
     }
 
     private static void printBanner() {
